@@ -20,10 +20,12 @@ const state = {
   timerId: null,
   lastFrameAt: null,
   currentColor: '',
+  wakeLock: null,
 };
 
 const canvas = document.querySelector('#ambient-canvas');
 const ctx = canvas.getContext('2d');
+const app = document.querySelector('#app');
 const settingsButton = document.querySelector('#settings-button');
 const modal = document.querySelector('#settings-modal');
 const settingsForm = document.querySelector('#settings-form');
@@ -42,6 +44,7 @@ const intervalTime = document.querySelector('#interval-time');
 const nextChangeTime = document.querySelector('#next-change-time');
 const currentColor = document.querySelector('#current-color');
 const currentPhase = document.querySelector('#current-phase');
+const deviceStatus = document.querySelector('#device-status');
 
 function loadSettings() {
   try {
@@ -208,6 +211,63 @@ function getPhaseLabel() {
   return 'Preparada';
 }
 
+function updateDeviceStatus(message = 'Lista para empezar.') {
+  deviceStatus.textContent = message;
+}
+
+async function requestWakeLock() {
+  if (!('wakeLock' in navigator)) {
+    updateDeviceStatus('Wake Lock no disponible en este navegador.');
+    return;
+  }
+
+  try {
+    state.wakeLock = await navigator.wakeLock.request('screen');
+    state.wakeLock.addEventListener('release', () => {
+      state.wakeLock = null;
+      if (state.running || state.paused) {
+        updateDeviceStatus('Pantalla libre. Si se apaga, vuelve a tocar Play.');
+      }
+    });
+    updateDeviceStatus('Pantalla activa durante la sesión.');
+  } catch {
+    updateDeviceStatus('No se pudo bloquear la pantalla activa.');
+  }
+}
+
+async function releaseWakeLock() {
+  if (!state.wakeLock) return;
+  try {
+    await state.wakeLock.release();
+  } catch {
+    // ignore
+  } finally {
+    state.wakeLock = null;
+  }
+}
+
+async function requestFullscreen() {
+  const target = document.documentElement;
+  if (!document.fullscreenEnabled || document.fullscreenElement) return;
+
+  try {
+    await target.requestFullscreen();
+    updateDeviceStatus('Pantalla completa activada.');
+  } catch {
+    updateDeviceStatus('Pantalla completa no disponible; seguimos igual.');
+  }
+}
+
+function preventTouchZoom(event) {
+  if (event.touches?.length > 1) {
+    event.preventDefault();
+  }
+}
+
+function preventGestureZoom(event) {
+  event.preventDefault();
+}
+
 function updateUI() {
   const totalMs = getSessionDurationMs();
   const { nextChangeInMs } = getColorState(state.elapsedMs);
@@ -237,6 +297,8 @@ function finishSession() {
     window.clearInterval(state.timerId);
     state.timerId = null;
   }
+  releaseWakeLock();
+  updateDeviceStatus('Sesión completada.');
   updateUI();
 }
 
@@ -257,7 +319,7 @@ function tick(now) {
   updateUI();
 }
 
-function startSession() {
+async function startSession() {
   if (state.running && !state.paused) return;
   if (state.elapsedMs >= getSessionDurationMs()) {
     state.elapsedMs = 0;
@@ -265,6 +327,8 @@ function startSession() {
   state.running = true;
   state.paused = false;
   state.lastFrameAt = null;
+  await requestFullscreen();
+  await requestWakeLock();
   if (!state.timerId) {
     state.timerId = window.setInterval(() => tick(performance.now()), 100);
   }
@@ -275,6 +339,7 @@ function togglePause() {
   if (!state.running && !state.paused) return;
   state.paused = !state.paused;
   state.lastFrameAt = null;
+  updateDeviceStatus(state.paused ? 'Sesión en pausa.' : 'Sesión activa.');
   updateUI();
 }
 
@@ -287,6 +352,8 @@ function stopSession() {
     window.clearInterval(state.timerId);
     state.timerId = null;
   }
+  releaseWakeLock();
+  updateDeviceStatus('Sesión detenida.');
   updateUI();
 }
 
@@ -332,6 +399,7 @@ settingsForm.addEventListener('submit', (event) => {
   if (!state.running && !state.paused) {
     state.elapsedMs = 0;
   }
+  updateDeviceStatus('Ajustes guardados.');
   updateUI();
   modal.close();
 });
@@ -340,6 +408,16 @@ playButton.addEventListener('click', startSession);
 pauseButton.addEventListener('click', togglePause);
 stopButton.addEventListener('click', stopSession);
 window.addEventListener('resize', resizeCanvas);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && (state.running || state.paused)) {
+    requestWakeLock();
+  }
+});
+document.addEventListener('touchstart', preventTouchZoom, { passive: false });
+document.addEventListener('touchmove', preventTouchZoom, { passive: false });
+document.addEventListener('gesturestart', preventGestureZoom);
+document.addEventListener('gesturechange', preventGestureZoom);
+document.addEventListener('dblclick', (event) => event.preventDefault(), { passive: false });
 
 syncForm();
 resizeCanvas();

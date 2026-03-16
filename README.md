@@ -12,14 +12,18 @@ Yoga Pace es una web app estática pensada para usarse en móvil o tablet mientr
 - Botón `Play` para iniciar la sesión
 - Controles `Pause / Resume` y `Stop`
 - Tiempo transcurrido y tiempo restante visibles
+- Presets de paleta
 - Guarda la configuración en `localStorage`
+- Intento de `Wake Lock` para mantener la pantalla despierta durante la sesión
+- Intento de pantalla completa al iniciar
+- Zoom bloqueado en mobile para que no se rompa la experiencia táctil
 - Compatible con GitHub Pages
 
 ## Estructura
 
 - `index.html` — interfaz principal
 - `styles.css` — layout y estilo visual
-- `script.js` — lógica de temporizador, canvas y ajustes
+- `script.js` — lógica de temporizador, canvas, fullscreen y ajustes
 - `PLAN.md` — plan y registro de progreso
 
 ## Uso local
