@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Yoga Pace</title>
+    <meta
+      name="description"
+      content="Una web app minimalista para acompañar sesiones de yoga con luz ambiente y temporizador."
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main id="app" class="app">
+      <canvas id="ambient-canvas" aria-hidden="true"></canvas>
+
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand__dot"></span>
+          <span class="brand__name">Yoga Pace</span>
+        </div>
+        <button id="settings-button" class="icon-button" type="button" aria-label="Abrir ajustes">
+          ⚙️
+        </button>
+      </header>
+
+      <section class="hud">
+        <div class="session-card">
+          <p class="eyebrow">Sesión</p>
+          <div class="timers">
+            <div>
+              <span class="timer-label">Transcurrido</span>
+              <strong id="elapsed-time" class="timer-value">00:00</strong>
+            </div>
+            <div>
+              <span class="timer-label">Restante</span>
+              <span id="remaining-time" class="timer-secondary">20:00</span>
+            </div>
+          </div>
+          <div class="timers timers--small">
+            <div>
+              <span class="timer-label">Intervalo</span>
+              <span id="interval-time" class="timer-secondary">02:00</span>
+            </div>
+            <div>
+              <span class="timer-label">Siguiente cambio</span>
+              <span id="next-change-time" class="timer-secondary">02:00</span>
+            </div>
+          </div>
+          <div class="timers timers--small">
+            <div>
+              <span class="timer-label">Color actual</span>
+              <span id="current-color" class="timer-secondary">#A06CD5</span>
+            </div>
+            <div>
+              <span class="timer-label">Fase</span>
+              <span id="current-phase" class="timer-secondary">Preparada</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button id="play-button" class="primary-button" type="button">Play</button>
+          <div id="secondary-controls" class="secondary-controls hidden">
+            <button id="pause-button" class="secondary-button" type="button">Pause</button>
+            <button id="stop-button" class="secondary-button secondary-button--danger" type="button">Stop</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="settings-modal" class="modal">
+      <form method="dialog" class="modal__surface" id="settings-form">
+        <div class="modal__header">
+          <div>
+            <p class="eyebrow">Ajustes</p>
+            <h1>Configura tu sesión</h1>
+          </div>
+          <button id="close-modal-button" class="icon-button" type="submit" value="cancel" aria-label="Cerrar ajustes">
+            ✕
+          </button>
+        </div>
+
+        <div class="modal__body">
+          <label class="field">
+            <span>Duración total (minutos)</span>
+            <input id="total-minutes" name="totalMinutes" type="number" min="1" max="240" step="1" required />
+          </label>
+
+          <label class="field">
+            <span>Intervalo de ejercicio (minutos)</span>
+            <input id="interval-minutes" name="intervalMinutes" type="number" min="0.25" max="60" step="0.25" required />
+          </label>
+
+          <label class="field">
+            <span>Preset de paleta</span>
+            <select id="palette-preset" name="palettePreset">
+              <option value="custom">Personalizada</option>
+              <option value="calma">Calma</option>
+              <option value="amanecer">Amanecer</option>
+              <option value="bosque">Bosque</option>
+              <option value="sunset">Sunset</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Paleta base</span>
+            <textarea
+              id="palette-input"
+              name="palette"
+              rows="4"
+              spellcheck="false"
+              placeholder="#A06CD5, #FFD670, #B8F2E6, #FF9770"
+              required
+            ></textarea>
+            <small>Separada por comas. Acepta hex y rgb().</small>
+          </label>
+
+          <div class="palette-preview">
+            <span class="timer-label">Vista previa</span>
+            <div id="palette-preview-track" class="palette-preview__track"></div>
+          </div>
+        </div>
+
+        <div class="modal__footer">
+          <button class="secondary-button" type="submit" value="cancel">Cancelar</button>
+          <button id="save-settings-button" class="primary-button" type="submit" value="save">Guardar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="./script.js" defer></script>
+  </body>
+</html>
