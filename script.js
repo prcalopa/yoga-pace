@@ -327,6 +327,7 @@ function updateUI() {
   const totalMs = getSessionDurationMs();
   const { nextChangeInMs } = getColorState(state.elapsedMs);
   const phaseLabel = getPhaseLabel();
+  const sessionLocked = state.running || state.paused;
 
   elapsedTime.textContent = formatTime(state.elapsedMs);
   remainingTime.textContent = formatTime(totalMs - state.elapsedMs);
@@ -335,9 +336,12 @@ function updateUI() {
   currentPhase.textContent = phaseLabel;
   sessionToggleTime.textContent = formatTime(state.elapsedMs);
   sessionTogglePhase.textContent = phaseLabel;
+  settingsButton.disabled = sessionLocked;
+  settingsButton.setAttribute('aria-disabled', String(sessionLocked));
   drawBackground(state.elapsedMs);
 
-  if (state.running || state.paused) {
+  if (sessionLocked) {
+    if (modal.open) modal.close();
     playButton.classList.add('hidden');
     secondaryControls.classList.remove('hidden');
     pauseButton.textContent = state.paused ? 'Resume' : 'Pause';
@@ -385,6 +389,7 @@ function tick(now) {
 
 async function startSession() {
   if (state.running && !state.paused) return;
+  if (modal.open) modal.close();
   if (state.elapsedMs >= getSessionDurationMs()) state.elapsedMs = 0;
   state.running = true;
   state.paused = false;

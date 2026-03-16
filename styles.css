@@ -88,12 +88,13 @@ textarea {
 }
 
 .screen-flash.is-active {
-  animation: screen-flash 420ms ease-out;
+  animation: screen-flash 1400ms ease-out;
 }
 
 @keyframes screen-flash {
   0% { opacity: 0; }
-  18% { opacity: 1; }
+  12% { opacity: 0.38; }
+  42% { opacity: 0.26; }
   100% { opacity: 0; }
 }
 

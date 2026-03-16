@@ -21,6 +21,8 @@ Yoga Pace es una web app estática pensada para usarse en móvil o tablet mientr
 - Intento de pantalla completa al iniciar
 - Zoom bloqueado en mobile para que no se rompa la experiencia táctil
 - PWA instalable con soporte offline básico
+- Ajustes bloqueados durante una sesión activa o en pausa
+- Tests e2e básicos con Playwright para flujos principales
 - Compatible con GitHub Pages
 
 ## Estructura
@@ -58,3 +60,4 @@ https://prcalopa.github.io/yoga-pace/
 ## Idea de producto
 
 Una herramienta ultra simple para acompañar sesiones de yoga, estiramientos, respiración o movilidad usando el dispositivo como luz ambiental suave y referencia temporal sin necesidad de mirar números todo el rato.
+poral sin necesidad de mirar números todo el rato.

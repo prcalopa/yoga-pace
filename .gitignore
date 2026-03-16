@@ -1,17 +1,18 @@
-# OS / editor
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
-
-# Logs
-*.log
-
-# Local env
-.env
-.env.*
 
 # Build / temp
-node_modules/
-dist/
 coverage/
+dist/
+.DS_Store
+.env
+.env.*
+.idea/
+# Local env
+*.log
+# Logs
+node_modules/
+# OS / editor
+# Playwright
+playwright-report/
+test-results/
+Thumbs.db
+.vscode/
