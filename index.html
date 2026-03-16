@@ -11,59 +11,85 @@
       name="description"
       content="Una web app minimalista para acompañar sesiones de yoga con luz ambiente y temporizador."
     />
+    <meta name="theme-color" content="#0f0f14" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Yoga Pace" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icon.svg" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <main id="app" class="app">
       <canvas id="ambient-canvas" aria-hidden="true"></canvas>
+      <div id="screen-flash" class="screen-flash" aria-hidden="true"></div>
 
       <header class="topbar">
         <div class="brand">
           <span class="brand__dot"></span>
           <span class="brand__name">Yoga Pace</span>
         </div>
-        <button id="settings-button" class="icon-button" type="button" aria-label="Abrir ajustes">
-          ⚙️
-        </button>
+        <div class="topbar__actions">
+          <button id="install-button" class="icon-button hidden" type="button" aria-label="Instalar app">
+            ⤓
+          </button>
+          <button id="settings-button" class="icon-button" type="button" aria-label="Abrir ajustes">
+            ⚙️
+          </button>
+        </div>
       </header>
 
       <section class="hud">
-        <div class="session-card">
-          <p class="eyebrow">Sesión</p>
-          <div class="timers">
-            <div>
-              <span class="timer-label">Transcurrido</span>
-              <strong id="elapsed-time" class="timer-value">00:00</strong>
+        <section id="session-panel" class="session-panel session-panel--collapsed">
+          <button id="session-toggle" class="session-toggle" type="button" aria-expanded="false" aria-controls="session-details">
+            <span>
+              <span class="session-toggle__label">Sesión</span>
+              <strong id="session-toggle-time">00:00</strong>
+            </span>
+            <span id="session-toggle-phase" class="session-toggle__phase">Preparada</span>
+          </button>
+
+          <div id="session-details" class="session-card hidden">
+            <div class="session-card__header">
+              <p class="eyebrow">Sesión</p>
+              <span id="device-status" class="device-status">Lista para empezar.</span>
             </div>
-            <div>
-              <span class="timer-label">Restante</span>
-              <span id="remaining-time" class="timer-secondary">20:00</span>
+
+            <div class="timers timers--hero">
+              <div>
+                <span class="timer-label">Transcurrido</span>
+                <strong id="elapsed-time" class="timer-value">00:00</strong>
+              </div>
+              <div>
+                <span class="timer-label">Restante</span>
+                <span id="remaining-time" class="timer-secondary">20:00</span>
+              </div>
+            </div>
+
+            <div class="timers timers--small">
+              <div>
+                <span class="timer-label">Intervalo</span>
+                <span id="interval-time" class="timer-secondary">02:00</span>
+              </div>
+              <div>
+                <span class="timer-label">Siguiente cambio</span>
+                <span id="next-change-time" class="timer-secondary">02:00</span>
+              </div>
+            </div>
+
+            <div class="timers timers--small">
+              <div>
+                <span class="timer-label">Color actual</span>
+                <span id="current-color" class="timer-secondary">#A06CD5</span>
+              </div>
+              <div>
+                <span class="timer-label">Fase</span>
+                <span id="current-phase" class="timer-secondary">Preparada</span>
+              </div>
             </div>
           </div>
-          <div class="timers timers--small">
-            <div>
-              <span class="timer-label">Intervalo</span>
-              <span id="interval-time" class="timer-secondary">02:00</span>
-            </div>
-            <div>
-              <span class="timer-label">Siguiente cambio</span>
-              <span id="next-change-time" class="timer-secondary">02:00</span>
-            </div>
-          </div>
-          <div class="timers timers--small">
-            <div>
-              <span class="timer-label">Color actual</span>
-              <span id="current-color" class="timer-secondary">#A06CD5</span>
-            </div>
-            <div>
-              <span class="timer-label">Fase</span>
-              <span id="current-phase" class="timer-secondary">Preparada</span>
-            </div>
-          </div>
-          <p id="device-status" class="device-status">Lista para empezar.</p>
-        </div>
+        </section>
 
         <div class="controls">
           <button id="play-button" class="primary-button" type="button">Play</button>
@@ -121,6 +147,19 @@
             ></textarea>
             <small>Separada por comas. Acepta hex y rgb().</small>
           </label>
+
+          <div class="field-group">
+            <label class="field field--inline">
+              <span>Vibración en cambio</span>
+              <input id="vibration-enabled" name="vibrationEnabled" type="checkbox" />
+            </label>
+
+            <label class="field">
+              <span>Intensidad del flash</span>
+              <input id="flash-intensity" name="flashIntensity" type="range" min="0" max="100" step="5" />
+              <small><span id="flash-intensity-value">35%</span> de intensidad</small>
+            </label>
+          </div>
 
           <div class="palette-preview">
             <span class="timer-label">Vista previa</span>

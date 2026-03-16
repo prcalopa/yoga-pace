@@ -10,6 +10,9 @@ const defaults = {
   intervalMinutes: 2,
   palette: presets.calma,
   preset: 'calma',
+  vibrationEnabled: true,
+  flashIntensity: 35,
+  panelExpanded: false,
 };
 
 const state = {
@@ -21,23 +24,34 @@ const state = {
   lastFrameAt: null,
   currentColor: '',
   wakeLock: null,
+  deferredPrompt: null,
+  lastPhaseIndex: 0,
 };
 
 const canvas = document.querySelector('#ambient-canvas');
 const ctx = canvas.getContext('2d');
-const app = document.querySelector('#app');
+const flashOverlay = document.querySelector('#screen-flash');
 const settingsButton = document.querySelector('#settings-button');
+const installButton = document.querySelector('#install-button');
 const modal = document.querySelector('#settings-modal');
 const settingsForm = document.querySelector('#settings-form');
 const totalMinutesInput = document.querySelector('#total-minutes');
 const intervalMinutesInput = document.querySelector('#interval-minutes');
 const palettePresetInput = document.querySelector('#palette-preset');
 const paletteInput = document.querySelector('#palette-input');
+const vibrationEnabledInput = document.querySelector('#vibration-enabled');
+const flashIntensityInput = document.querySelector('#flash-intensity');
+const flashIntensityValue = document.querySelector('#flash-intensity-value');
 const palettePreviewTrack = document.querySelector('#palette-preview-track');
 const playButton = document.querySelector('#play-button');
 const pauseButton = document.querySelector('#pause-button');
 const stopButton = document.querySelector('#stop-button');
 const secondaryControls = document.querySelector('#secondary-controls');
+const sessionPanel = document.querySelector('#session-panel');
+const sessionToggle = document.querySelector('#session-toggle');
+const sessionDetails = document.querySelector('#session-details');
+const sessionToggleTime = document.querySelector('#session-toggle-time');
+const sessionTogglePhase = document.querySelector('#session-toggle-phase');
 const elapsedTime = document.querySelector('#elapsed-time');
 const remainingTime = document.querySelector('#remaining-time');
 const intervalTime = document.querySelector('#interval-time');
@@ -59,6 +73,9 @@ function loadSettings() {
       intervalMinutes: Number(parsed.intervalMinutes) || defaults.intervalMinutes,
       palette,
       preset,
+      vibrationEnabled: parsed.vibrationEnabled ?? defaults.vibrationEnabled,
+      flashIntensity: Number(parsed.flashIntensity ?? defaults.flashIntensity),
+      panelExpanded: parsed.panelExpanded ?? defaults.panelExpanded,
     };
   } catch {
     return { ...defaults };
@@ -80,7 +97,11 @@ function syncForm() {
   intervalMinutesInput.value = state.settings.intervalMinutes;
   palettePresetInput.value = state.settings.preset || 'custom';
   paletteInput.value = state.settings.palette.join(', ');
+  vibrationEnabledInput.checked = state.settings.vibrationEnabled;
+  flashIntensityInput.value = state.settings.flashIntensity;
+  flashIntensityValue.textContent = `${state.settings.flashIntensity}%`;
   renderPalettePreview(state.settings.palette);
+  applyPanelState();
 }
 
 function renderPalettePreview(palette) {
@@ -197,9 +218,7 @@ function drawBackground(elapsedMs) {
 
 function formatTime(ms) {
   const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
-  const minutes = Math.floor(totalSeconds / 60)
-    .toString()
-    .padStart(2, '0');
+  const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
   const seconds = (totalSeconds % 60).toString().padStart(2, '0');
   return `${minutes}:${seconds}`;
 }
@@ -258,25 +277,64 @@ async function requestFullscreen() {
   }
 }
 
-function preventTouchZoom(event) {
-  if (event.touches?.length > 1) {
-    event.preventDefault();
+async function installApp() {
+  if (!state.deferredPrompt) return;
+  state.deferredPrompt.prompt();
+  try {
+    await state.deferredPrompt.userChoice;
+  } finally {
+    state.deferredPrompt = null;
+    installButton.classList.add('hidden');
   }
+}
+
+function triggerFlash() {
+  const intensity = Math.max(0, Math.min(100, Number(state.settings.flashIntensity || 0)));
+  if (!intensity) return;
+  document.documentElement.style.setProperty('--flash-opacity', (intensity / 100).toFixed(2));
+  flashOverlay.classList.remove('is-active');
+  void flashOverlay.offsetWidth;
+  flashOverlay.classList.add('is-active');
+}
+
+function triggerVibration() {
+  if (!state.settings.vibrationEnabled || !('vibrate' in navigator)) return;
+  navigator.vibrate([90, 60, 90]);
+}
+
+function notifyIntervalChange(phaseIndex) {
+  if (phaseIndex <= 0 || phaseIndex === state.lastPhaseIndex) return;
+  triggerVibration();
+  triggerFlash();
+}
+
+function preventTouchZoom(event) {
+  if (event.touches?.length > 1) event.preventDefault();
 }
 
 function preventGestureZoom(event) {
   event.preventDefault();
 }
 
+function applyPanelState() {
+  const expanded = !!state.settings.panelExpanded;
+  sessionPanel.classList.toggle('session-panel--collapsed', !expanded);
+  sessionToggle.setAttribute('aria-expanded', String(expanded));
+  sessionDetails.classList.toggle('hidden', !expanded);
+}
+
 function updateUI() {
   const totalMs = getSessionDurationMs();
   const { nextChangeInMs } = getColorState(state.elapsedMs);
+  const phaseLabel = getPhaseLabel();
 
   elapsedTime.textContent = formatTime(state.elapsedMs);
   remainingTime.textContent = formatTime(totalMs - state.elapsedMs);
   intervalTime.textContent = formatTime(getIntervalDurationMs());
   nextChangeTime.textContent = formatTime(nextChangeInMs);
-  currentPhase.textContent = getPhaseLabel();
+  currentPhase.textContent = phaseLabel;
+  sessionToggleTime.textContent = formatTime(state.elapsedMs);
+  sessionTogglePhase.textContent = phaseLabel;
   drawBackground(state.elapsedMs);
 
   if (state.running || state.paused) {
@@ -310,6 +368,12 @@ function tick(now) {
   state.lastFrameAt = now;
   state.elapsedMs += delta;
 
+  const { phaseIndex } = getColorState(state.elapsedMs);
+  if (phaseIndex !== state.lastPhaseIndex) {
+    notifyIntervalChange(phaseIndex);
+    state.lastPhaseIndex = phaseIndex;
+  }
+
   if (state.elapsedMs >= getSessionDurationMs()) {
     state.elapsedMs = getSessionDurationMs();
     finishSession();
@@ -321,17 +385,14 @@ function tick(now) {
 
 async function startSession() {
   if (state.running && !state.paused) return;
-  if (state.elapsedMs >= getSessionDurationMs()) {
-    state.elapsedMs = 0;
-  }
+  if (state.elapsedMs >= getSessionDurationMs()) state.elapsedMs = 0;
   state.running = true;
   state.paused = false;
   state.lastFrameAt = null;
+  state.lastPhaseIndex = getColorState(state.elapsedMs).phaseIndex;
   await requestFullscreen();
   await requestWakeLock();
-  if (!state.timerId) {
-    state.timerId = window.setInterval(() => tick(performance.now()), 100);
-  }
+  if (!state.timerId) state.timerId = window.setInterval(() => tick(performance.now()), 100);
   updateUI();
 }
 
@@ -348,6 +409,7 @@ function stopSession() {
   state.paused = false;
   state.elapsedMs = 0;
   state.lastFrameAt = null;
+  state.lastPhaseIndex = 0;
   if (state.timerId) {
     window.clearInterval(state.timerId);
     state.timerId = null;
@@ -357,9 +419,35 @@ function stopSession() {
   updateUI();
 }
 
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+
+window.addEventListener('beforeinstallprompt', (event) => {
+  event.preventDefault();
+  state.deferredPrompt = event;
+  installButton.classList.remove('hidden');
+});
+
+window.addEventListener('appinstalled', () => {
+  state.deferredPrompt = null;
+  installButton.classList.add('hidden');
+  updateDeviceStatus('App instalada.');
+});
+
 settingsButton.addEventListener('click', () => {
   syncForm();
   modal.showModal();
+});
+
+installButton.addEventListener('click', installApp);
+
+sessionToggle.addEventListener('click', () => {
+  state.settings.panelExpanded = !state.settings.panelExpanded;
+  saveSettings();
+  applyPanelState();
 });
 
 palettePresetInput.addEventListener('change', () => {
@@ -376,6 +464,14 @@ paletteInput.addEventListener('input', () => {
   renderPalettePreview(palette);
 });
 
+flashIntensityInput.addEventListener('input', () => {
+  flashIntensityValue.textContent = `${flashIntensityInput.value}%`;
+});
+
+flashOverlay.addEventListener('animationend', () => {
+  flashOverlay.classList.remove('is-active');
+});
+
 settingsForm.addEventListener('submit', (event) => {
   const action = event.submitter?.value ?? 'cancel';
   if (action !== 'save') return;
@@ -390,15 +486,16 @@ settingsForm.addEventListener('submit', (event) => {
 
   paletteInput.setCustomValidity('');
   state.settings = {
+    ...state.settings,
     totalMinutes: Number(totalMinutesInput.value),
     intervalMinutes: Number(intervalMinutesInput.value),
     palette,
     preset: palettePresetInput.value === 'custom' ? detectPreset(palette) : palettePresetInput.value,
+    vibrationEnabled: vibrationEnabledInput.checked,
+    flashIntensity: Number(flashIntensityInput.value),
   };
   saveSettings();
-  if (!state.running && !state.paused) {
-    state.elapsedMs = 0;
-  }
+  if (!state.running && !state.paused) state.elapsedMs = 0;
   updateDeviceStatus('Ajustes guardados.');
   updateUI();
   modal.close();
@@ -409,9 +506,7 @@ pauseButton.addEventListener('click', togglePause);
 stopButton.addEventListener('click', stopSession);
 window.addEventListener('resize', resizeCanvas);
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && (state.running || state.paused)) {
-    requestWakeLock();
-  }
+  if (document.visibilityState === 'visible' && (state.running || state.paused)) requestWakeLock();
 });
 document.addEventListener('touchstart', preventTouchZoom, { passive: false });
 document.addEventListener('touchmove', preventTouchZoom, { passive: false });

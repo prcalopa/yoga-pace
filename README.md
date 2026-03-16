@@ -5,10 +5,13 @@ Yoga Pace es una web app estática pensada para usarse en móvil o tablet mientr
 ## Qué hace
 
 - Canvas fullscreen con transición de color por intervalos
+- Panel de sesión minimalista y desplegable
 - Botón de ajustes con modal para configurar:
   - duración total de sesión
   - intervalo de ejercicio
   - paleta base de colores
+  - vibración en cambio de intervalo
+  - intensidad del flash de pantalla
 - Botón `Play` para iniciar la sesión
 - Controles `Pause / Resume` y `Stop`
 - Tiempo transcurrido y tiempo restante visibles
@@ -17,13 +20,17 @@ Yoga Pace es una web app estática pensada para usarse en móvil o tablet mientr
 - Intento de `Wake Lock` para mantener la pantalla despierta durante la sesión
 - Intento de pantalla completa al iniciar
 - Zoom bloqueado en mobile para que no se rompa la experiencia táctil
+- PWA instalable con soporte offline básico
 - Compatible con GitHub Pages
 
 ## Estructura
 
 - `index.html` — interfaz principal
 - `styles.css` — layout y estilo visual
-- `script.js` — lógica de temporizador, canvas, fullscreen y ajustes
+- `script.js` — lógica de temporizador, canvas, PWA y ajustes
+- `manifest.webmanifest` — manifiesto de instalación
+- `sw.js` — service worker para cache básico
+- `icon.svg` — icono de la app
 - `PLAN.md` — plan y registro de progreso
 
 ## Uso local
@@ -40,14 +47,9 @@ Luego abre `http://localhost:8080`.
 
 ## Publicación en GitHub Pages
 
-1. Sube el contenido a la rama `main`.
-2. En GitHub, entra en `Settings > Pages`.
-3. En `Build and deployment`, selecciona:
-   - **Source:** `Deploy from a branch`
-   - **Branch:** `main` / `/ (root)`
-4. Guarda y espera a que GitHub Pages publique el sitio.
+La app está pensada para servirse desde `main` en GitHub Pages.
 
-La URL normalmente quedará así:
+URL actual:
 
 ```text
 https://prcalopa.github.io/yoga-pace/
