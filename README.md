@@ -6,6 +6,8 @@ Yoga Pace es una web app estática pensada para usarse en móvil o tablet mientr
 
 - Canvas fullscreen con transición de color por intervalos
 - Panel de sesión minimalista y desplegable
+- Countdown inicial de 3 segundos antes de empezar
+- Focus mode que oculta la UI tras unos segundos de inactividad durante la sesión
 - Botón de ajustes con modal para configurar:
   - duración total de sesión
   - intervalo de ejercicio

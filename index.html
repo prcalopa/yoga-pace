@@ -24,8 +24,11 @@
     <main id="app" class="app">
       <canvas id="ambient-canvas" aria-hidden="true"></canvas>
       <div id="screen-flash" class="screen-flash" aria-hidden="true"></div>
+      <div id="countdown-overlay" class="countdown-overlay hidden" aria-live="assertive">
+        <span id="countdown-value" class="countdown-value">3</span>
+      </div>
 
-      <header class="topbar">
+      <header class="topbar ui-layer">
         <div class="brand">
           <span class="brand__dot"></span>
           <span class="brand__name">Yoga Pace</span>
@@ -40,7 +43,7 @@
         </div>
       </header>
 
-      <section class="hud">
+      <section class="hud ui-layer">
         <section id="session-panel" class="session-panel session-panel--collapsed">
           <button id="session-toggle" class="session-toggle" type="button" aria-expanded="false" aria-controls="session-details">
             <span>

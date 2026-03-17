@@ -5,6 +5,10 @@ const presets = {
   sunset: ['#7B2CBF', '#9D4EDD', '#C77DFF', '#FF758F', '#FFB4A2'],
 };
 
+const COUNTDOWN_SECONDS = 3;
+const FOCUS_IDLE_MS = 3500;
+const FOCUS_PEEK_MS = 2200;
+
 const defaults = {
   totalMinutes: 20,
   intervalMinutes: 2,
@@ -26,11 +30,18 @@ const state = {
   wakeLock: null,
   deferredPrompt: null,
   lastPhaseIndex: 0,
+  countdownRunning: false,
+  countdownTimerId: null,
+  focusTimerId: null,
+  focusPeekTimerId: null,
 };
 
+const app = document.querySelector('#app');
 const canvas = document.querySelector('#ambient-canvas');
 const ctx = canvas.getContext('2d');
 const flashOverlay = document.querySelector('#screen-flash');
+const countdownOverlay = document.querySelector('#countdown-overlay');
+const countdownValue = document.querySelector('#countdown-value');
 const settingsButton = document.querySelector('#settings-button');
 const installButton = document.querySelector('#install-button');
 const modal = document.querySelector('#settings-modal');
@@ -224,6 +235,7 @@ function formatTime(ms) {
 }
 
 function getPhaseLabel() {
+  if (state.countdownRunning) return 'Preparando';
   if (state.paused) return 'En pausa';
   if (state.running) return 'Activa';
   if (state.elapsedMs >= getSessionDurationMs() && state.elapsedMs !== 0) return 'Completada';
@@ -232,6 +244,45 @@ function getPhaseLabel() {
 
 function updateDeviceStatus(message = 'Lista para empezar.') {
   deviceStatus.textContent = message;
+}
+
+function clearFocusTimers() {
+  if (state.focusTimerId) {
+    clearTimeout(state.focusTimerId);
+    state.focusTimerId = null;
+  }
+  if (state.focusPeekTimerId) {
+    clearTimeout(state.focusPeekTimerId);
+    state.focusPeekTimerId = null;
+  }
+}
+
+function scheduleFocusMode() {
+  clearFocusTimers();
+  if (!state.running || state.paused || state.countdownRunning) {
+    app.classList.remove('focus-mode-active', 'focus-mode-peek');
+    return;
+  }
+  state.focusTimerId = window.setTimeout(() => {
+    app.classList.add('focus-mode-active');
+    app.classList.remove('focus-mode-peek');
+  }, FOCUS_IDLE_MS);
+}
+
+function peekFocusMode() {
+  if (!state.running || state.paused || state.countdownRunning) return;
+  clearFocusTimers();
+  app.classList.remove('focus-mode-active');
+  app.classList.add('focus-mode-peek');
+  state.focusPeekTimerId = window.setTimeout(() => {
+    app.classList.remove('focus-mode-peek');
+    scheduleFocusMode();
+  }, FOCUS_PEEK_MS);
+}
+
+function exitFocusMode() {
+  clearFocusTimers();
+  app.classList.remove('focus-mode-active', 'focus-mode-peek');
 }
 
 async function requestWakeLock() {
@@ -327,7 +378,7 @@ function updateUI() {
   const totalMs = getSessionDurationMs();
   const { nextChangeInMs } = getColorState(state.elapsedMs);
   const phaseLabel = getPhaseLabel();
-  const sessionLocked = state.running || state.paused;
+  const sessionLocked = state.running || state.paused || state.countdownRunning;
 
   elapsedTime.textContent = formatTime(state.elapsedMs);
   remainingTime.textContent = formatTime(totalMs - state.elapsedMs);
@@ -359,6 +410,7 @@ function finishSession() {
     window.clearInterval(state.timerId);
     state.timerId = null;
   }
+  exitFocusMode();
   releaseWakeLock();
   updateDeviceStatus('Sesión completada.');
   updateUI();
@@ -387,10 +439,7 @@ function tick(now) {
   updateUI();
 }
 
-async function startSession() {
-  if (state.running && !state.paused) return;
-  if (modal.open) modal.close();
-  if (state.elapsedMs >= getSessionDurationMs()) state.elapsedMs = 0;
+async function beginSessionRun() {
   state.running = true;
   state.paused = false;
   state.lastFrameAt = null;
@@ -398,13 +447,55 @@ async function startSession() {
   await requestFullscreen();
   await requestWakeLock();
   if (!state.timerId) state.timerId = window.setInterval(() => tick(performance.now()), 100);
+  updateDeviceStatus('Sesión activa.');
   updateUI();
+  scheduleFocusMode();
+}
+
+function runCountdown(seconds = COUNTDOWN_SECONDS) {
+  state.countdownRunning = true;
+  exitFocusMode();
+  countdownOverlay.classList.remove('hidden');
+  countdownValue.textContent = String(seconds);
+  updateDeviceStatus('Preparando sesión...');
+  updateUI();
+
+  return new Promise((resolve) => {
+    let remaining = seconds;
+    state.countdownTimerId = window.setInterval(() => {
+      remaining -= 1;
+      if (remaining > 0) {
+        countdownValue.textContent = String(remaining);
+        return;
+      }
+
+      clearInterval(state.countdownTimerId);
+      state.countdownTimerId = null;
+      state.countdownRunning = false;
+      countdownOverlay.classList.add('hidden');
+      resolve();
+    }, 1000);
+  });
+}
+
+async function startSession() {
+  if (state.running && !state.paused) return;
+  if (state.countdownRunning) return;
+  if (modal.open) modal.close();
+  if (state.elapsedMs >= getSessionDurationMs()) state.elapsedMs = 0;
+  await runCountdown();
+  await beginSessionRun();
 }
 
 function togglePause() {
   if (!state.running && !state.paused) return;
   state.paused = !state.paused;
   state.lastFrameAt = null;
+  if (state.paused) {
+    exitFocusMode();
+  } else {
+    scheduleFocusMode();
+  }
   updateDeviceStatus(state.paused ? 'Sesión en pausa.' : 'Sesión activa.');
   updateUI();
 }
@@ -412,6 +503,7 @@ function togglePause() {
 function stopSession() {
   state.running = false;
   state.paused = false;
+  state.countdownRunning = false;
   state.elapsedMs = 0;
   state.lastFrameAt = null;
   state.lastPhaseIndex = 0;
@@ -419,6 +511,12 @@ function stopSession() {
     window.clearInterval(state.timerId);
     state.timerId = null;
   }
+  if (state.countdownTimerId) {
+    window.clearInterval(state.countdownTimerId);
+    state.countdownTimerId = null;
+  }
+  countdownOverlay.classList.add('hidden');
+  exitFocusMode();
   releaseWakeLock();
   updateDeviceStatus('Sesión detenida.');
   updateUI();
@@ -443,6 +541,7 @@ window.addEventListener('appinstalled', () => {
 });
 
 settingsButton.addEventListener('click', () => {
+  if (state.running || state.paused || state.countdownRunning) return;
   syncForm();
   modal.showModal();
 });
@@ -453,6 +552,7 @@ sessionToggle.addEventListener('click', () => {
   state.settings.panelExpanded = !state.settings.panelExpanded;
   saveSettings();
   applyPanelState();
+  if (state.running && !state.paused) peekFocusMode();
 });
 
 palettePresetInput.addEventListener('change', () => {
@@ -518,6 +618,10 @@ document.addEventListener('touchmove', preventTouchZoom, { passive: false });
 document.addEventListener('gesturestart', preventGestureZoom);
 document.addEventListener('gesturechange', preventGestureZoom);
 document.addEventListener('dblclick', (event) => event.preventDefault(), { passive: false });
+document.addEventListener('pointerdown', (event) => {
+  if (event.target.closest('.ui-layer') || event.target.closest('.modal')) return;
+  if (state.running && !state.paused) peekFocusMode();
+});
 
 syncForm();
 resizeCanvas();

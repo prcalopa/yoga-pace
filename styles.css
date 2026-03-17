@@ -69,7 +69,8 @@ textarea {
 }
 
 #ambient-canvas,
-.screen-flash {
+.screen-flash,
+.countdown-overlay {
   position: fixed;
   inset: 0;
   width: 100%;
@@ -91,6 +92,21 @@ textarea {
   animation: screen-flash 1400ms ease-out;
 }
 
+.countdown-overlay {
+  z-index: 8;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle, rgba(9, 12, 18, 0.16), rgba(9, 12, 18, 0.52));
+  backdrop-filter: blur(4px);
+}
+
+.countdown-value {
+  font-size: clamp(5rem, 22vw, 9rem);
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+}
+
 @keyframes screen-flash {
   0% { opacity: 0; }
   12% { opacity: 0.38; }
@@ -106,6 +122,22 @@ textarea {
   background: radial-gradient(circle at top, rgba(255, 255, 255, 0.14), transparent 45%),
     linear-gradient(180deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.28));
   pointer-events: none;
+}
+
+.ui-layer {
+  transition: opacity 280ms ease, transform 280ms ease;
+}
+
+.app.focus-mode-active .ui-layer {
+  opacity: 0;
+  transform: translateY(12px);
+  pointer-events: none;
+}
+
+.app.focus-mode-peek .ui-layer {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 
 .topbar,

@@ -22,6 +22,8 @@ Crear una web app estática para yoga con canvas fullscreen, cambio de color por
 - [x] Añadir vibración y flash configurable por intervalo
 - [x] Convertir la app en PWA instalable
 - [x] Hacer el panel de sesión minimalista y desplegable
+- [x] Añadir countdown inicial
+- [x] Añadir focus mode durante la sesión
 - [x] Publicar en GitHub Pages
 
 ## Registro de progreso
@@ -32,5 +34,5 @@ Crear una web app estática para yoga con canvas fullscreen, cambio de color por
 - Tercera pasada hecha: wake lock, intento de fullscreen al iniciar y bloqueo de zoom en mobile.
 - Cuarta pasada hecha: vibración + flash configurable, PWA instalable y panel de sesión compacto/desplegable.
 - Quinta pasada hecha: flash más suave/largo, ajustes bloqueados durante sesión, y tests básicos e2e con Playwright (3/3 pasando).
+- Sexta pasada hecha: countdown inicial, focus mode por inactividad y ampliación de la suite e2e a 5 tests (5/5 pasando).
 - Sitio live en GitHub Pages.
-Pages.
