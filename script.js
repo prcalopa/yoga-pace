@@ -25,6 +25,7 @@ const state = {
   paused: false,
   elapsedMs: 0,
   timerId: null,
+  animationFrameId: null,
   lastFrameAt: null,
   currentColor: '',
   wakeLock: null,
@@ -140,7 +141,7 @@ function resizeCanvas() {
   canvas.style.width = `${window.innerWidth}px`;
   canvas.style.height = `${window.innerHeight}px`;
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-  drawBackground(state.elapsedMs);
+  drawBackground(performance.now());
 }
 
 function getSessionDurationMs() {
@@ -174,17 +175,6 @@ function rgbToString({ r, g, b }) {
   return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
 }
 
-function mixColor(a, b, t) {
-  const start = hexToRgb(a);
-  const end = hexToRgb(b);
-
-  return rgbToString({
-    r: start.r + (end.r - start.r) * t,
-    g: start.g + (end.g - start.g) * t,
-    b: start.b + (end.b - start.b) * t,
-  });
-}
-
 function shadeColor(color, amount) {
   const rgb = hexToRgb(color);
   return rgbToString({
@@ -208,23 +198,82 @@ function getColorState(elapsedMs) {
   const safeElapsed = Math.max(elapsedMs, 0);
   const phaseIndex = Math.floor(safeElapsed / intervalMs);
   const currentIndex = phaseIndex % palette.length;
-  const nextIndex = (currentIndex + 1) % palette.length;
-  const progress = (safeElapsed % intervalMs) / intervalMs;
-  const color = mixColor(palette[currentIndex], palette[nextIndex], progress);
-  const nextChangeInMs = intervalMs - (safeElapsed % intervalMs || 0);
+  const color = palette[currentIndex];
+  const remainder = safeElapsed % intervalMs;
+  const nextChangeInMs = intervalMs - remainder || intervalMs;
 
   return { color, phaseIndex, nextChangeInMs };
 }
 
-function drawBackground(elapsedMs) {
-  const { color } = getColorState(elapsedMs);
+function drawBackground(now = performance.now()) {
+  const { color } = getColorState(state.elapsedMs);
   state.currentColor = color;
-  const gradient = ctx.createLinearGradient(0, 0, window.innerWidth, window.innerHeight);
-  gradient.addColorStop(0, color);
-  gradient.addColorStop(1, shadeColor(color, -28));
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const t = now * 0.00045;
+  const waveX = Math.sin(t * 1.2) * width * 0.08;
+  const waveY = Math.cos(t * 0.9) * height * 0.08;
+
+  const baseGradient = ctx.createLinearGradient(0, 0, width, height);
+  baseGradient.addColorStop(0, shadeColor(color, 14));
+  baseGradient.addColorStop(1, shadeColor(color, -26));
+  ctx.fillStyle = baseGradient;
+  ctx.fillRect(0, 0, width, height);
+
+  const rippleA = ctx.createRadialGradient(
+    width * 0.32 + waveX,
+    height * 0.28 + waveY,
+    width * 0.04,
+    width * 0.32 + waveX,
+    height * 0.28 + waveY,
+    width * 0.7
+  );
+  rippleA.addColorStop(0, 'rgba(255,255,255,0.16)');
+  rippleA.addColorStop(0.4, 'rgba(255,255,255,0.06)');
+  rippleA.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = rippleA;
+  ctx.fillRect(0, 0, width, height);
+
+  const rippleB = ctx.createRadialGradient(
+    width * 0.72 - waveX * 0.75,
+    height * 0.68 - waveY * 0.9,
+    width * 0.03,
+    width * 0.72 - waveX * 0.75,
+    height * 0.68 - waveY * 0.9,
+    width * 0.62
+  );
+  rippleB.addColorStop(0, 'rgba(255,255,255,0.12)');
+  rippleB.addColorStop(0.35, 'rgba(255,255,255,0.05)');
+  rippleB.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = rippleB;
+  ctx.fillRect(0, 0, width, height);
+
+  const shimmer = ctx.createLinearGradient(0, height * (0.2 + Math.sin(t * 0.8) * 0.08), width, height * (0.8 + Math.cos(t * 0.7) * 0.08));
+  shimmer.addColorStop(0, 'rgba(255,255,255,0.02)');
+  shimmer.addColorStop(0.5, 'rgba(255,255,255,0.08)');
+  shimmer.addColorStop(1, 'rgba(255,255,255,0.02)');
+  ctx.fillStyle = shimmer;
+  ctx.fillRect(0, 0, width, height);
+
   currentColor.textContent = color.toUpperCase();
+}
+
+function startCanvasLoop() {
+  if (state.animationFrameId) return;
+
+  const render = (now) => {
+    drawBackground(now);
+    state.animationFrameId = requestAnimationFrame(render);
+  };
+
+  state.animationFrameId = requestAnimationFrame(render);
+}
+
+function stopCanvasLoop() {
+  if (!state.animationFrameId) return;
+  cancelAnimationFrame(state.animationFrameId);
+  state.animationFrameId = null;
 }
 
 function formatTime(ms) {
@@ -389,7 +438,7 @@ function updateUI() {
   sessionTogglePhase.textContent = phaseLabel;
   settingsButton.disabled = sessionLocked;
   settingsButton.setAttribute('aria-disabled', String(sessionLocked));
-  drawBackground(state.elapsedMs);
+  drawBackground(performance.now());
 
   if (sessionLocked) {
     if (modal.open) modal.close();
@@ -528,6 +577,8 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+window.addEventListener('load', startCanvasLoop);
+
 window.addEventListener('beforeinstallprompt', (event) => {
   event.preventDefault();
   state.deferredPrompt = event;
@@ -611,7 +662,12 @@ pauseButton.addEventListener('click', togglePause);
 stopButton.addEventListener('click', stopSession);
 window.addEventListener('resize', resizeCanvas);
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && (state.running || state.paused)) requestWakeLock();
+  if (document.visibilityState === 'visible') {
+    if (state.running || state.paused) requestWakeLock();
+    startCanvasLoop();
+  } else {
+    stopCanvasLoop();
+  }
 });
 document.addEventListener('touchstart', preventTouchZoom, { passive: false });
 document.addEventListener('touchmove', preventTouchZoom, { passive: false });
