@@ -48,6 +48,26 @@ test.describe('Yoga Pace basic flows', () => {
     await expect(settingsButton).toBeEnabled();
   });
 
+  test('shows a 5 second countdown before changing interval', async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(() => {
+      localStorage.setItem('yoga-pace-settings', JSON.stringify({
+        totalMinutes: 2,
+        intervalMinutes: 0.1,
+        palette: ['#A06CD5', '#B8F2E6', '#CDE7FF', '#D8F3DC', '#F7D6E0'],
+        preset: 'calma',
+        vibrationEnabled: true,
+        flashIntensity: 35,
+        panelExpanded: false,
+      }));
+    });
+    await page.reload();
+    await page.getByRole('button', { name: 'Play' }).click();
+    await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible({ timeout: 6000 });
+    await expect(page.locator('#countdown-overlay')).toBeVisible({ timeout: 2500 });
+    await expect(page.locator('#countdown-value')).toHaveText('5');
+  });
+
   test('enters focus mode after a short idle period during a session', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Play' }).click();

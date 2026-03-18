@@ -6,6 +6,7 @@ const presets = {
 };
 
 const COUNTDOWN_SECONDS = 3;
+const INTERVAL_COUNTDOWN_SECONDS = 5;
 const FOCUS_IDLE_MS = 3500;
 const FOCUS_PEEK_MS = 2200;
 
@@ -423,6 +424,28 @@ function applyPanelState() {
   sessionDetails.classList.toggle('hidden', !expanded);
 }
 
+function updateIntervalCountdownOverlay(nextChangeInMs, totalMs) {
+  if (state.countdownRunning) {
+    return;
+  }
+
+  if (!state.running || state.paused) {
+    countdownOverlay.classList.add('hidden');
+    return;
+  }
+
+  const hasUpcomingIntervalChange = state.elapsedMs + nextChangeInMs < totalMs;
+  const shouldShow = hasUpcomingIntervalChange && nextChangeInMs <= INTERVAL_COUNTDOWN_SECONDS * 1000;
+
+  if (!shouldShow) {
+    countdownOverlay.classList.add('hidden');
+    return;
+  }
+
+  countdownValue.textContent = String(Math.max(1, Math.ceil(nextChangeInMs / 1000)));
+  countdownOverlay.classList.remove('hidden');
+}
+
 function updateUI() {
   const totalMs = getSessionDurationMs();
   const { nextChangeInMs } = getColorState(state.elapsedMs);
@@ -438,6 +461,7 @@ function updateUI() {
   sessionTogglePhase.textContent = phaseLabel;
   settingsButton.disabled = sessionLocked;
   settingsButton.setAttribute('aria-disabled', String(sessionLocked));
+  updateIntervalCountdownOverlay(nextChangeInMs, totalMs);
   drawBackground(performance.now());
 
   if (sessionLocked) {
